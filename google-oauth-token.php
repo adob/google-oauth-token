@@ -10,6 +10,10 @@ $usage = "Usage: $argv[0] [OPTIONS]... https://www.googleapis.com/auth/drive
     
     -f, --force-refresh
     
+    -i, --client-id=123.apps.googleusercontent.com
+    
+    -s, --client-secret=abc
+    
     -v, --verbose";
 
 $client_id = "509744952818.apps.googleusercontent.com";
@@ -25,7 +29,6 @@ $force_refresh = false;
 $login_hint = null;
 $cmd = array_shift($argv);
 
-
 while (next_opt($opt, $val, $args)) {
     switch($opt) {
         case 'l':
@@ -36,6 +39,16 @@ while (next_opt($opt, $val, $args)) {
         case 'f':
         case 'force-refresh':
             $force_refresh = true;
+            break;
+            
+        case 'i':
+        case 'client-id':
+            $client_id = $val;
+            break;
+        
+        case 's':
+        case 'client-secret':
+            $client_secret = $val;
             break;
             
         case 'v':
@@ -154,12 +167,12 @@ class Token {
         global $client_secret;
         
         $url = "https://accounts.google.com/o/oauth2/token";
-        $data = http_build_query([
+        $data = http_build_query(array(
             "refresh_token" => $this->refresh_token,
             "client_id" => $client_id,
             "client_secret" => $client_secret,
             "grant_type" => "refresh_token"
-        ]);
+        ));
         
         info("Refreshing token via $url");
         
@@ -178,11 +191,11 @@ class Token {
     }
     
     function save_to_cache(&$db) {
-        $db[$this->scope . "#" . $this->login_hint] = [
+        $db[$this->scope . "#" . $this->login_hint] = array(
             "access_token"  => $this->access_token,
             "refresh_token" => $this->refresh_token,
             "expires_at"    => $this->expires_at
-        ];
+        );
     }
 }
 
@@ -206,7 +219,7 @@ function next_opt(&$opt, &$val, &$args) {
     }
     
     $arg = array_shift($argv);
-    
+    //echo "arg: $arg\n";
     if ($arg == "--") {
         while (count($argv) > 0)
             $args[] = array_shift($argv);
@@ -229,28 +242,27 @@ function next_opt(&$opt, &$val, &$args) {
             }
         }
     }
-    else if (strpos($arg, '-') === 0) {
-        if (strlen($arg) == 1) {
-            $val = $arg;
+    else if (strpos($arg, '-') === 0 && strlen($arg) > 1) {
+        $opt = $arg[1];
+        
+        $eqpos = strpos($arg, '=');
+        if ($eqpos !== false) {
+            $val = substr($arg, $eqpos+1);
+        } else {
+            $val = false;
         }
-        else {
-            $opt = $arg[1];
-            
-            $eqpos = strpos($arg, '=');
-            if ($eqpos !== false) {
-                $val = substr($arg, $eqpos+1);
-            }
-            else {
-                if (strlen($arg) == 2 && count($argv) > 0 && strpos($argv[0], "-") !== 0) {
-                    $val = array_shift($argv);
-                }
-                else {
-                    $val = substr($arg, 2);
-                }
-            }
-        }
+//         else {
+//             if (strlen($arg) == 2 && count($argv) > 0 && strpos($argv[0], "-") !== 0) {
+//                 $val = array_shift($argv);
+//             }
+//             else {
+//                 $val = substr($arg, 2);
+//             }
+//         }
+
     }
     else {
+        //echo "shifting $arg\n";
         $args[] =  $arg;
         goto start;
     }
@@ -289,7 +301,7 @@ function make_auth_url($scope, $login_hint, $redirect_uri, $xsrf) {
     global $client_id;
     
     $scope = preg_replace('/\+/', ' ', $scope);
-    $auth_params = [
+    $auth_params = array(
         "response_type" => "code",
         "client_id" => $client_id,
         "redirect_uri" => $redirect_uri,
@@ -297,7 +309,7 @@ function make_auth_url($scope, $login_hint, $redirect_uri, $xsrf) {
         "access_type" => "offline",
         "approval_prompt" => "auto",
         "state" => $xsrf
-    ];
+    );
 
     if ($login_hint) {
         $auth_params["login_hint"] = $login_hint;
@@ -330,7 +342,8 @@ function open_browser($url) {
 
 function http_server_start(&$socket, &$port) {
     $socket = stream_socket_server("tcp://localhost:0");
-    $port = intval( explode(":", stream_socket_get_name($socket, false))[1] );
+    preg_match('/:(\d+)$/', stream_socket_get_name($socket, false), $matches);
+    $port = intval($matches[1]);
 }
 
 function http_server_recv($server) {
@@ -364,6 +377,8 @@ function parse_http_response($data) {
 }
 
 function http_post($url, $data) {
+    info("POST URL: $url");
+    info("POST DATA: $data");
     $curl = curl_init();
     curl_setopt($curl, CURLOPT_URL, $url);
     curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
@@ -371,6 +386,9 @@ function http_post($url, $data) {
     
     $output = curl_exec($curl);
     
+    info("POST RESULT: $output");
+    //$output = curl_exec($curl);
+    //info("POST RESULT: $output");
     curl_close($curl);
     
     return $output;
@@ -380,13 +398,13 @@ function exchange_token($code, $redirect_uri) {
     global $client_secret;
     global $client_id;
     
-    $params = [
-        "code" => $code,
+    $params = array(
+        "code" => $code . "foobar",
         "redirect_uri" => $redirect_uri,
         "client_id" => $client_id,
         "client_secret" => $client_secret,
         "grant_type" => "authorization_code"
-    ];
+    );
 
     $url = "https://accounts.google.com/o/oauth2/token";
     $data = http_build_query($params);
