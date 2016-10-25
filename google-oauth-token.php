@@ -399,7 +399,7 @@ function exchange_token($code, $redirect_uri) {
     global $client_id;
     
     $params = array(
-        "code" => $code . "foobar",
+        "code" => $code,
         "redirect_uri" => $redirect_uri,
         "client_id" => $client_id,
         "client_secret" => $client_secret,
