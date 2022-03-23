@@ -1,8 +1,3 @@
-#!/usr/bin/php
-<?php
-
-error_reporting(E_STRICT | E_ALL);
-
 
 $usage = "Usage: $argv[0] [OPTIONS]... https://www.googleapis.com/auth/drive
     -l, --login=foo@gmail.com
